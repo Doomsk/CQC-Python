@@ -104,8 +104,9 @@ CQC_CMD_ROT_Z = 16  # Rotation over angle around Z in 2pi/256 increments
 CQC_CMD_H = 17  # Hadamard H
 CQC_CMD_K = 18  # K Gate - taking computational to Y eigenbasis
 
-CQC_CMD_CNOT = 20  # CNOT Gate with this as control
-CQC_CMD_CPHASE = 21  # CPHASE Gate with this as control
+CQC_CMD_CNOT = 20      # CNOT Gate with this as control
+CQC_CMD_TOFFOLI = 30  # TOFFOLI Gate with this as control
+CQC_CMD_CPHASE = 21    # CPHASE Gate with this as control
 
 CQC_CMD_ALLOCATE = 22  # Allocate a number of qubits
 CQC_CMD_RELEASE = 23  # Release a qubit
@@ -135,6 +136,7 @@ _CMD_TO_STRING = {
     CQC_CMD_H: "H",
     CQC_CMD_K: "K",
     CQC_CMD_CNOT: "CNOT",
+    CQC_CMD_TOFFOLI: "TOFFOLI",
     CQC_CMD_CPHASE: "CPHASE",
     CQC_CMD_ALLOCATE: "ALLOCATE",
     CQC_CMD_RELEASE: "RELEASE",
@@ -769,6 +771,47 @@ class CQCXtraQubitHeader(Header):
         :returns the packed header
         """
         header = struct.pack(self.PACKAGING_FORMAT, self.qubit_id)
+        return header
+
+    def _unpack(self, headerBytes):
+        """
+        Unpack packet data. For definitions see cLib/cqc.h
+        :param headerBytes: The unpacked headers.
+        """
+        header = struct.unpack(self.PACKAGING_FORMAT, headerBytes)
+        self.qubit_id = header[0]
+
+    def _printable(self):
+        """
+            Produce a printable string for information purposes.
+        """
+        toPrint = "Extra Qubit header. "
+        toPrint += "qubit id: " + str(self.qubit_id) + " "
+
+        return toPrint
+
+class CQC2222XtraQubitHeader(Header):
+    """
+        Header used to send qubit of a secondary qubit for two qubit gates
+    """
+
+    PACKAGING_FORMAT = "!HH"
+    HDR_LENGTH = struct.calcsize(PACKAGING_FORMAT)
+
+    def _setVals(self, qubit_id=0, qubit_control_id=0):
+        """
+        Set header using given values
+        :param qubit_id: The id of the secondary qubit
+        """
+        self.qubit_id = qubit_id
+        self.qubit_control_id = qubit_control_id
+
+    def _pack(self):
+        """
+        Pack data into packet form. For definitions see cLib/cqc.h
+        :returns the packed header
+        """
+        header = struct.pack(self.PACKAGING_FORMAT, self.qubit_id, self.qubit_control_id)
         return header
 
     def _unpack(self, headerBytes):

@@ -35,6 +35,7 @@ from cqc.cqcHeader import (
     CQC_CMD_SEND,
     CQC_CMD_EPR,
     CQC_CMD_CNOT,
+    CQC_CMD_TOFFOLI,
     CQC_CMD_CPHASE,
     CQC_CMD_ROT_X,
     CQC_CMD_ROT_Y,
@@ -56,6 +57,7 @@ from cqc.cqcHeader import (
     CQC_CMD_RELEASE,
     CQCCommunicationHeader,
     CQCXtraQubitHeader,
+    CQC2222XtraQubitHeader,
     CQCRotationHeader,
     CQCXtraHeader,
     CQC_VERSION,
@@ -88,6 +90,8 @@ def has_extra(cmd):
     if cmd.instr == CQC_CMD_EPR:
         return True
     if cmd.instr == CQC_CMD_CNOT:
+        return True
+    if cmd.instr == CQC_CMD_TOFFOLI:
         return True
     if cmd.instr == CQC_CMD_CPHASE:
         return True
@@ -163,6 +167,7 @@ class CQCMessageHandler(ABC):
             CQC_CMD_ROT_Y: self.cmd_roty,
             CQC_CMD_ROT_Z: self.cmd_rotz,
             CQC_CMD_CNOT: self.cmd_cnot,
+            CQC_CMD_TOFFOLI: self.cmd_toffoli,
             CQC_CMD_CPHASE: self.cmd_cphase,
             CQC_CMD_MEASURE: self.cmd_measure,
             CQC_CMD_MEASURE_INPLACE: self.cmd_measure_inplace,
@@ -237,6 +242,15 @@ class CQCMessageHandler(ABC):
         return hdr.pack()
 
     @staticmethod
+    def create_extra_control_header(cmd, cmd_data, cqc_version=CQC_VERSION):
+        
+        cmd_length = CQCXtraQubitHeader.HDR_LENGTH        
+        hdr         = CQCXtraQubitHeader(cmd_data[:cmd_length])
+        hdr_control = CQCXtraQubitHeader(cmd_data[cmd_length:cmd_length+2])
+        
+        return hdr, hdr_control
+
+    @staticmethod
     def create_extra_header(cmd, cmd_data, cqc_version=CQC_VERSION):
         """
         Create the extra header (communication header, rotation header, etc) based on the command
@@ -248,7 +262,6 @@ class CQCMessageHandler(ABC):
                 return hdr
             else:
                 return None
-
         instruction = cmd.instr
         if instruction == CQC_CMD_SEND or instruction == CQC_CMD_EPR:
             cmd_length = CQCCommunicationHeader.HDR_LENGTH
@@ -256,6 +269,9 @@ class CQCMessageHandler(ABC):
         elif instruction == CQC_CMD_CNOT or instruction == CQC_CMD_CPHASE:
             cmd_length = CQCXtraQubitHeader.HDR_LENGTH
             hdr = CQCXtraQubitHeader(cmd_data[:cmd_length])
+        elif instruction == CQC_CMD_TOFFOLI:
+            cmd_length = CQC2222XtraQubitHeader.HDR_LENGTH       
+            hdr = CQC2222XtraQubitHeader(cmd_data[:cmd_length])
         elif instruction == CQC_CMD_ROT_X or instruction == CQC_CMD_ROT_Y or instruction == CQC_CMD_ROT_Z:
             cmd_length = CQCRotationHeader.HDR_LENGTH
             hdr = CQCRotationHeader(cmd_data[:cmd_length])
@@ -289,6 +305,7 @@ class CQCMessageHandler(ABC):
         # Read in all the commands sent
         cur_length = 0
         should_notify = None
+        xtra_control = None
         while cur_length < length:
             cmd = CQCCmdHeader(cmd_data[cur_length: cur_length + CQCCmdHeader.HDR_LENGTH])
             logging.debug("CQC %s got command header %s", self.name, cmd)
@@ -299,7 +316,12 @@ class CQCMessageHandler(ABC):
 
             # Create the extra header if it exist
             try:
-                xtra = self.create_extra_header(cmd, cmd_data[newl:], cqc_header.version)
+           
+                if cmd.instr == CQC_CMD_TOFFOLI:
+                    xtra, xtra_control = self.create_extra_control_header(cmd, cmd_data[newl:], cqc_header.version)
+                else:
+                    xtra = self.create_extra_header(cmd, cmd_data[newl:], cqc_header.version)
+           
             except IndexError:
                 xtra = None
                 logging.debug("CQC %s: Missing XTRA Header", self.name)
@@ -307,6 +329,10 @@ class CQCMessageHandler(ABC):
             if xtra is not None:
                 newl += xtra.HDR_LENGTH
                 logging.debug("CQC %s: Read XTRA Header: %s", self.name, xtra)
+
+            if xtra_control is not None:
+                newl += xtra.HDR_LENGTH
+                logging.debug("CQC %s: Read XTRA CONTROL Header: %s", self.name, xtra_control)
 
             # Run this command
             logging.debug("CQC %s: Executing command: %s", self.name, cmd)
@@ -316,7 +342,12 @@ class CQCMessageHandler(ABC):
                 self.return_messages[cqc_header.app_id].append(msg)
                 return False, 0
             try:
-                succ = yield self.commandHandlers[cmd.instr](cqc_header, cmd, xtra)
+                logging.debug("Run this command ", cmd.instr)
+                if cmd.instr == CQC_CMD_TOFFOLI:
+                    succ = yield self.commandHandlers[cmd.instr](cqc_header, cmd, xtra, xtra_control)
+                else:
+                    succ = yield self.commandHandlers[cmd.instr](cqc_header, cmd, xtra)
+                
             except NotImplementedError:
                 logging.error("CQC {}: Command not implemented yet".format(self.name))
                 self.return_messages[cqc_header.app_id].append(
@@ -512,6 +543,10 @@ class CQCMessageHandler(ABC):
 
     @abstractmethod
     def cmd_cnot(self, cqc_header, cmd, xtra):
+        pass
+
+    @abstractmethod
+    def cmd_toffoli(self, cqc_header, cmd, xtra_control, xtra):
         pass
 
     @abstractmethod
