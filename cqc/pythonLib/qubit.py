@@ -417,7 +417,7 @@ class qubit:
 
         notify = notify and self.notify
 
-        self._cqc.put_command(qID=self._qID, command=command, notify=notify, block=block, xtra_qID=target._qID)
+        self._cqc.put_command(qID=self._qID, command=command, notify=notify, block=block, xtra_qID=target._qID, xtra_control_qID=control._qID)
 
     def cnot(self, target, notify=True, block=True):
         """
