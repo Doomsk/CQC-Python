@@ -55,6 +55,7 @@ from cqc.cqcHeader import (
     CQC_CMD_SEND,
     CQC_CMD_EPR,
     CQC_CMD_CNOT,
+    CQC_CMD_TOFFOLI,
     CQC_CMD_CPHASE,
     CQC_CMD_ROT_X,
     CQC_CMD_ROT_Y,
@@ -73,6 +74,7 @@ from cqc.cqcHeader import (
     CQCFactoryHeader,
     CQCRotationHeader,
     CQCXtraQubitHeader,
+    CQC2222XtraQubitHeader,
     CQCCommunicationHeader,
     CQCType,
 )
@@ -332,6 +334,7 @@ class CQCHandler(abc.ABC):
         """
         # Construct extra header if needed.
         xtra_hdr = None
+        xtra_control_hdr = None
         if command == CQC_CMD_SEND or command == CQC_CMD_EPR:
             xtra_hdr = CQCCommunicationHeader()
             remote_appID = kwargs.get("remote_appID", 0)
@@ -342,6 +345,11 @@ class CQCHandler(abc.ABC):
             xtra_hdr = CQCXtraQubitHeader()
             xtra_qID = kwargs.get("xtra_qID", 0)
             xtra_hdr.setVals(xtra_qID)
+        elif command == CQC_CMD_TOFFOLI:
+            xtra_hdr = CQC2222XtraQubitHeader()
+            xtra_qID = kwargs.get("xtra_qID", 0)
+            xtra_control_qID = kwargs.get("xtra_control_qID", 0)
+            xtra_hdr.setVals(xtra_qID, xtra_control_qID)
         elif (command == CQC_CMD_ROT_X or command == CQC_CMD_ROT_Y 
               or command == CQC_CMD_ROT_Z):
             xtra_hdr = CQCRotationHeader()
@@ -904,6 +912,7 @@ class CQCHandler(abc.ABC):
     def hasXtraHeader(command):
         return command in {
             CQC_CMD_CNOT,
+            CQC_CMD_TOFFOLI,
             CQC_CMD_SEND,
             CQC_CMD_EPR,
             CQC_CMD_ROT_X,

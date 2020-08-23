@@ -36,10 +36,10 @@ from cqc.pythonLib import CQCConnection, qubit
 # main
 #
 def main():
-
+    print('Alice init')
     # Initialize the connection
-    with CQCConnection("Alice") as Alice:
-
+    with CQCConnection("Alice", backend="simulaqron", network_name="triangle") as Alice:
+        print('Alice?')
         # Make an EPR pair with Bob
         qA = Alice.createEPR("Bob")
 
@@ -63,6 +63,7 @@ def main():
 
         # Send corrections to Bob
         Alice.sendClassical("Bob", [a, b])
+    print('Alice end')
 
 
 ##################################################################################################

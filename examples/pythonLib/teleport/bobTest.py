@@ -35,10 +35,10 @@ from cqc.pythonLib import CQCConnection
 # main
 #
 def main():
-
+    print('Bob init')
     # Initialize the connection
-    with CQCConnection("Bob") as Bob:
-
+    with CQCConnection("Bob", backend="simulaqron", network_name="triangle") as Bob:
+        print('Bob?')
         # Make an EPR pair with Alice
         qB = Bob.recvEPR()
 
@@ -60,6 +60,7 @@ def main():
         print("|" + "-" * (len(to_print) + 2) + "|")
         print("| " + to_print + " |")
         print("|" + "-" * (len(to_print) + 2) + "|")
+    print('Bob end')
 
 
 ##################################################################################################

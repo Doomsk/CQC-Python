@@ -43,6 +43,7 @@ from cqc.cqcHeader import (
     CQC_CMD_ROT_Z,
     CQC_CMD_CNOT,
     CQC_CMD_CPHASE,
+    CQC_CMD_TOFFOLI,
     CQC_CMD_MEASURE,
     CQC_CMD_MEASURE_INPLACE,
     CQC_CMD_RESET,
@@ -393,6 +394,31 @@ class qubit:
             xtra_qID=target._qID,
         )
 
+    def _three_qubit_gate(self, command, control, target, notify, block):
+        """
+        Perform a three qubit gate on the qubit
+        :param command:
+        :param control:
+        :param target:
+        :param notify:
+        :param block:
+        :return:
+        """
+        # check if qubits are active
+        self.check_active()
+        control.check_active()
+        target.check_active()
+
+        if (self._cqc != control._cqc) and (control._cqc != target._cqc) and (self._cqc != target._cqc):
+            raise CQCUnsuppError("Multi qubit operations can only operate on qubits in the same process")
+
+        if (self == control) or (control == target) or (self == target):
+            raise CQCUnsuppError("Cannot perform multi qubit operation where control and/or target are the same")
+
+        notify = notify and self.notify
+
+        self._cqc.put_command(qID=self._qID, command=command, notify=notify, block=block, xtra_qID=target._qID, xtra_control_qID=control._qID)
+
     def cnot(self, target, notify=True, block=True):
         """
         Applies a cnot onto target.
@@ -420,6 +446,9 @@ class qubit:
             :block:         Do we want the qubit to be blocked
         """
         self._two_qubit_gate(CQC_CMD_CPHASE, target, notify, block)
+
+    def toffoli(self, control, target, notify=True, block=True):
+        self._three_qubit_gate(CQC_CMD_TOFFOLI, control, target, notify, block)
 
     def measure(self, inplace=False, block=True):
         """
